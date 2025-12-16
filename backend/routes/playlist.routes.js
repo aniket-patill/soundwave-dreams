@@ -11,11 +11,17 @@ import {
   reorderPlaylistSongs
 } from '../controllers/playlist.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
+import { uploadImage } from '../middleware/upload.middleware.js';
 
 const router = Router();
 
-// All routes require authentication
+// Public routes
+// All other routes require authentication
 router.use(protect);
+
+// Routes
+router.get('/', getPlaylists);
+router.get('/:id', getPlaylist);
 
 // Validation
 const createValidation = [
@@ -41,10 +47,8 @@ const updateValidation = [
 ];
 
 // Playlist CRUD
-router.post('/', createValidation, createPlaylist);
-router.get('/', getPlaylists);
-router.get('/:id', getPlaylist);
-router.put('/:id', updateValidation, updatePlaylist);
+router.post('/', uploadImage.single('cover'), createValidation, createPlaylist);
+router.put('/:id', uploadImage.single('cover'), updateValidation, updatePlaylist);
 router.delete('/:id', deletePlaylist);
 
 // Song management

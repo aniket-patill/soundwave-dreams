@@ -20,7 +20,7 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
@@ -36,12 +36,35 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+import fs from 'fs';
+import path from 'path';
+
+// Simple file logger
+const logFile = path.join(process.cwd(), 'server.log');
+const log = (message) => {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  fs.appendFileSync(logFile, logMessage);
+  console.log(message); // Keep console log too
+};
+
+// Request Logger
+app.use((req, res, next) => {
+  log(`[REQUEST] ${req.method} ${req.url}`);
+  // Hook into response finish to log status
+  res.on('finish', () => {
+    log(`[RESPONSE] ${req.method} ${req.url} ${res.statusCode}`);
+  });
+  next();
+});
+
+// Attach log to app for use in other files (optional, but good for quick hacking)
+app.log = log;
 
 // Health check endpoint
 app.get('/healthz', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     service: 'Cloudly API'
   });
@@ -62,8 +85,8 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
   res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
+    error: process.env.NODE_ENV === 'production'
+      ? 'Internal server error'
       : err.message
   });
 });

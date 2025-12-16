@@ -65,6 +65,7 @@ const Register = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              autoComplete="name"
             />
           </div>
           <div className="space-y-2">
@@ -76,6 +77,7 @@ const Register = () => {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
+              autoComplete="username"
             />
           </div>
           <div className="space-y-2">
@@ -86,6 +88,7 @@ const Register = () => {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
+              autoComplete="new-password"
             />
           </div>
 

@@ -16,7 +16,7 @@ const transformPlaylist = (playlist: any): Playlist => {
   return {
     ...playlist,
     id: playlist._id || playlist.id,
-    songs: playlist.songs ? playlist.songs.map((s: any) => transformSong(s.song || s)) : [] 
+    songs: playlist.songs ? playlist.songs.map((s: any) => transformSong(s.song || s)) : []
   };
 };
 
@@ -36,8 +36,24 @@ export const musicService = {
     return response.data.playlists.map(transformPlaylist);
   },
 
-  createPlaylist: async (name: string, description?: string, isPublic?: boolean): Promise<Playlist> => {
-    const response = await api.post('/playlists', { name, description, isPublic });
+  getPublicPlaylists: async (): Promise<Playlist[]> => {
+    const response = await api.get('/playlists?public=true');
+    // Note: Backend endpoint /playlists currently filters by "my" playlists only in `playlist.controller.js`.
+    // I need to update the backend controller to allow fetching public playlists too!
+    // But for now let's add the service method. I will fix backend next.
+    return response.data.playlists.map(transformPlaylist);
+  },
+
+  createPlaylist: async (data: { name: string; description?: string; isPublic?: boolean; cover?: File | null }): Promise<Playlist> => {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    if (data.description) formData.append('description', data.description);
+    if (data.isPublic !== undefined) formData.append('isPublic', String(data.isPublic));
+    if (data.cover) formData.append('cover', data.cover);
+
+    const response = await api.post('/playlists', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return transformPlaylist(response.data.playlist);
   },
 
@@ -62,6 +78,11 @@ export const musicService = {
 
   removeSongFromPlaylist: async (playlistId: string, songId: string): Promise<Playlist> => {
     const response = await api.delete(`/playlists/${playlistId}/songs/${songId}`);
+    return transformPlaylist(response.data.playlist);
+  },
+
+  reorderPlaylist: async (playlistId: string, songIds: string[]): Promise<Playlist> => {
+    const response = await api.put(`/playlists/${playlistId}/reorder`, { songIds });
     return transformPlaylist(response.data.playlist);
   },
 

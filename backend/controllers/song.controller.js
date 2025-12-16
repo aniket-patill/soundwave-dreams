@@ -3,6 +3,7 @@ import Song from '../models/Song.js';
 import LikedSong from '../models/LikedSong.js';
 import ListeningHistory from '../models/ListeningHistory.js';
 import cloudinary from '../config/cloudinary.js';
+import { getIO } from '../socket.js';
 
 // Helper to upload buffer to cloudinary
 const uploadToCloudinary = (buffer, options) => {
@@ -59,6 +60,17 @@ export const uploadSong = async (req, res) => {
       duration: duration ? parseInt(duration) : Math.round(audioResult.duration || 0),
       uploadedBy: req.user._id
     });
+
+    // Emit real-time update
+    try {
+      const io = getIO();
+      // Populate uploader info before emitting
+      await song.populate('uploadedBy', 'name avatarUrl');
+      io.emit('song:uploaded', song);
+    } catch (socketError) {
+      console.error('Socket emit error:', socketError);
+      // Don't fail the request if socket fails
+    }
 
     res.status(201).json({ song });
   } catch (error) {
@@ -249,7 +261,7 @@ export const getLikedSongs = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
-    
+
     console.log(`[DEBUG] Found ${likedSongs.length} raw liked songs entries`);
 
     const songs = likedSongs
@@ -259,7 +271,7 @@ export const getLikedSongs = async (req, res) => {
         liked: true,
         likedAt: l.createdAt
       }));
-    
+
     console.log(`[DEBUG] Returning ${songs.length} valid songs`);
 
     const total = await LikedSong.countDocuments({ user: req.user._id });

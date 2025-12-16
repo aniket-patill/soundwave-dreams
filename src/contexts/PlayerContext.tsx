@@ -11,6 +11,7 @@ interface PlayerContextType extends PlayerState {
   setVolume: (volume: number) => void;
   setProgress: (progress: number) => void;
   toggleLike: (songId: string, currentLikedStatus: boolean) => void;
+  shuffleQueue: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -88,7 +89,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       // Logic for optimistic update logic remains similar but relies on the passed status
       const newStatus = !currentLikedStatus;
-      
+
       // Update backend
       console.log(`[DEBUG] Toggling like for song ${songId}. Current state: ${currentLikedStatus} (sending ${!currentLikedStatus})`);
       musicService.toggleLikeSong(songId, currentLikedStatus)
@@ -101,18 +102,42 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           console.error("[DEBUG] Failed to toggle like:", err);
           // Revert if failed (could implement revert logic here)
         });
-      
+
       return {
-      ...prev,
-      queue: prev.queue.map((song) =>
-        song.id === songId ? { ...song, liked: newStatus } : song
-      ),
-      currentSong:
-        prev.currentSong?.id === songId
-          ? { ...prev.currentSong, liked: newStatus }
-          : prev.currentSong,
-    }});
+        ...prev,
+        queue: prev.queue.map((song) =>
+          song.id === songId ? { ...song, liked: newStatus } : song
+        ),
+        currentSong:
+          prev.currentSong?.id === songId
+            ? { ...prev.currentSong, liked: newStatus }
+            : prev.currentSong,
+      }
+    });
   }, [queryClient]);
+
+  const shuffleQueue = useCallback(() => {
+    setState((prev) => {
+      if (prev.queue.length <= 1) return prev;
+
+      const current = prev.currentSong;
+      const rest = prev.queue.filter(s => s.id !== current?.id);
+
+      // Fisher-Yates shuffle
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+
+      const newQueue = current ? [current, ...rest] : rest;
+
+      return {
+        ...prev,
+        queue: newQueue,
+        queueIndex: 0 // Current song is now at 0
+      };
+    });
+  }, []);
 
   return (
     <PlayerContext.Provider
@@ -125,6 +150,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setVolume,
         setProgress,
         toggleLike,
+        shuffleQueue,
       }}
     >
       {children}

@@ -23,6 +23,7 @@ const Playlists = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [newPlaylistDesc, setNewPlaylistDesc] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +33,7 @@ const Playlists = () => {
       await createPlaylist.mutateAsync({
         name: newPlaylistName,
         description: newPlaylistDesc,
+        cover: coverFile
       });
       toast({
         title: "Success",
@@ -40,6 +42,7 @@ const Playlists = () => {
       setIsOpen(false);
       setNewPlaylistName("");
       setNewPlaylistDesc("");
+      setCoverFile(null);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -73,7 +76,7 @@ const Playlists = () => {
           <h1 className="text-3xl font-bold text-foreground">Your Playlists</h1>
           <p className="text-muted-foreground mt-1">Create and manage your collections</p>
         </div>
-        
+
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary hover:bg-primary/90">
@@ -89,6 +92,33 @@ const Playlists = () => {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
+              {/* Cover Image Upload */}
+              <div className="flex justify-center mb-4">
+                <div className="relative w-32 h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center overflow-hidden hover:border-primary transition-colors hover:cursor-pointer group">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setCoverFile(file);
+                    }}
+                  />
+                  {coverFile ? (
+                    <img
+                      src={URL.createObjectURL(coverFile)}
+                      alt="Cover preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground group-hover:text-primary transition-colors">
+                      <Music className="w-8 h-8 mb-2" />
+                      <span className="text-xs">Add Cover</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input

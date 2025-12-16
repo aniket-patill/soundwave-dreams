@@ -32,24 +32,24 @@ export const usePlaylists = () => {
 };
 
 export const useLikedSongs = () => {
-    return useQuery({
-        queryKey: ['songs', 'liked'],
-        queryFn: musicService.getLikedSongs
-    });
+  return useQuery({
+    queryKey: ['songs', 'liked'],
+    queryFn: musicService.getLikedSongs
+  });
 };
 
 export const useRecentlyPlayed = () => {
-    return useQuery({
-        queryKey: ['songs', 'recent'],
-        queryFn: musicService.getRecentlyPlayed
-    });
+  return useQuery({
+    queryKey: ['songs', 'recent'],
+    queryFn: musicService.getRecentlyPlayed
+  });
 };
 
 export const useCreatePlaylist = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (newPlaylist: { name: string; description?: string; isPublic?: boolean }) =>
-      musicService.createPlaylist(newPlaylist.name, newPlaylist.description, newPlaylist.isPublic),
+    mutationFn: (newPlaylist: { name: string; description?: string; isPublic?: boolean; cover?: File | null }) =>
+      musicService.createPlaylist(newPlaylist),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
     },
@@ -100,12 +100,28 @@ export const useAddSongToPlaylist = () => {
 
 export const useRemoveSongFromPlaylist = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: ({ playlistId, songId }: { playlistId: string; songId: string }) =>
       musicService.removeSongFromPlaylist(playlistId, songId),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['playlist', data.id] });
-      queryClient.invalidateQueries({ queryKey: ['playlists'] });
+    onSuccess: (_, { playlistId }) => {
+      queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
+    },
+  });
+};
+
+export const useReorderPlaylist = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ playlistId, songIds }: { playlistId: string; songIds: string[] }) =>
+      musicService.reorderPlaylist(playlistId, songIds),
+    onSuccess: (_, { playlistId }) => {
+      // We might NOT want to invalidate immediately if we are optimistically updating, 
+      // but for simplicity let's invalidate to ensure sync.
+      // Ideally we update the cache directly for smooth UX.
+      queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
     },
   });
 };

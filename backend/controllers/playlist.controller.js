@@ -12,17 +12,30 @@ export const createPlaylist = async (req, res) => {
     }
 
     const { name, description, isPublic } = req.body;
+    let coverUrl = null;
+    let coverPublicId = null;
+
+    if (req.file) {
+      coverUrl = req.file.path;
+      coverPublicId = req.file.filename;
+    }
 
     const playlist = await Playlist.create({
       name,
       description: description || '',
-      isPublic: isPublic || false,
+      isPublic: isPublic === 'true' || isPublic === true || false, // Handle FormData string boolean
+      coverUrl,
+      coverPublicId,
       createdBy: req.user._id,
       songs: []
     });
 
     res.status(201).json({ playlist });
   } catch (error) {
+    // If Db fails but image uploaded, clean up
+    if (req.file) {
+      await cloudinary.uploader.destroy(req.file.filename);
+    }
     console.error('Create playlist error:', error);
     res.status(500).json({ error: 'Failed to create playlist' });
   }
@@ -33,11 +46,25 @@ export const getPlaylists = async (req, res) => {
   try {
     // Enforce privacy: only show user's own playlists
     // Note: If you want to allow searching public playlists later, you can modify this.
-    // For now, per user request, we restrict to "my" playlists only.
-    const query = { createdBy: req.user._id };
-    
-    // If search param exists? (Future proofing, but currently strictly my playlists)
-    
+    // Modified to support public playlists for Discover page
+
+    // Enforce privacy: only show user's own playlists
+    // Note: If you want to allow searching public playlists later, you can modify this.
+    // Modified to support public playlists for Discover page
+
+    let query = {};
+
+    // If querying for public playlists (Discover page)
+    if (req.query.public === 'true') {
+      query = { isPublic: true };
+    } else if (req.user) {
+      // If not looking for public, allow users to see their own
+      query = { createdBy: req.user._id };
+    } else {
+      // If not public request and not logged in, return empty or unauthorized
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const playlists = await Playlist.find(query)
       .populate('createdBy', 'name avatarUrl')
       .sort({ createdAt: -1 });
@@ -108,12 +135,23 @@ export const updatePlaylist = async (req, res) => {
 
     if (name) playlist.name = name;
     if (description !== undefined) playlist.description = description;
-    if (isPublic !== undefined) playlist.isPublic = isPublic;
+    if (isPublic !== undefined) playlist.isPublic = isPublic === 'true' || isPublic === true;
+
+    // Handle new cover
+    if (req.file) {
+      // Delete old cover if exists
+      if (playlist.coverPublicId) {
+        await cloudinary.uploader.destroy(playlist.coverPublicId);
+      }
+      playlist.coverUrl = req.file.path;
+      playlist.coverPublicId = req.file.filename;
+    }
 
     await playlist.save();
 
     res.json({ playlist });
   } catch (error) {
+    if (req.file) await cloudinary.uploader.destroy(req.file.filename);
     console.error('Update playlist error:', error);
     res.status(500).json({ error: 'Failed to update playlist' });
   }
@@ -242,7 +280,7 @@ export const reorderPlaylistSongs = async (req, res) => {
     // Validate all songs exist in playlist
     const currentSongIds = playlist.songs.map(s => s.song.toString());
     const valid = songIds.every(id => currentSongIds.includes(id)) &&
-                  songIds.length === currentSongIds.length;
+      songIds.length === currentSongIds.length;
 
     if (!valid) {
       return res.status(400).json({ error: 'Invalid song order' });
