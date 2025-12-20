@@ -7,7 +7,9 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const binaryPath = path.join(__dirname, '..', 'bin', 'yt-dlp.exe');
+// Determine binary name based on platform
+const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+const binaryPath = path.join(__dirname, '..', 'bin', binaryName);
 const tempDir = path.join(__dirname, '..', 'temp');
 
 // Ensure temp dir exists
